@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import "./brand-polish.css";
 import { getLocale, makeT, type Locale } from "@/lib/i18n";
 import { getBrand } from "@/lib/brand";
 import { currentUser } from "@/lib/auth";
