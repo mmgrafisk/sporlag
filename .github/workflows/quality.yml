@@ -1,0 +1,123 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'chatgpt/**'
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      NODE_OPTIONS: --no-warnings
+      DATA_DIR: /tmp/sporlag-data
+      SESSION_SECRET: ci-only-session-secret-not-for-production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and production build
+        run: npm run check
+
+      - name: Start production server
+        run: |
+          npm run start > /tmp/sporlag-server.log 2>&1 &
+          echo $! > /tmp/sporlag-server.pid
+          for i in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/sporlag-server.log
+          exit 1
+
+      - name: Seed full Offer Graph validation flow
+        run: |
+          curl --fail --silent --show-error \
+            -X POST \
+            -H 'Origin: http://127.0.0.1:3000' \
+            http://127.0.0.1:3000/api/internal/dev-seed \
+            | tee /tmp/seed.json
+          grep -q '"ok":true' /tmp/seed.json
+
+      - name: Smoke public consumer routes and offer API
+        run: |
+          for path in \
+            / \
+            /udforsk \
+            /virksomheder \
+            /virksomheder/telmore \
+            /tilbud/offer_0001 \
+            /markedspulsen \
+            /metodologi \
+            /om \
+            /privatliv \
+            /konto; do
+            echo "GET $path"
+            curl --fail --silent --show-error "http://127.0.0.1:3000$path" >/dev/null
+          done
+          curl --fail --silent --show-error http://127.0.0.1:3000/api/offers/offer_0001 \
+            | grep -q 'offer_0001'
+
+      - name: Smoke consumer authentication and protected flows
+        run: |
+          curl --fail --silent --show-error \
+            -c /tmp/consumer.cookies \
+            -X POST \
+            -H 'Origin: http://127.0.0.1:3000' \
+            -H 'Content-Type: application/json' \
+            --data '{"email":"forbruger@demo.dk","password":"demo1234"}' \
+            http://127.0.0.1:3000/api/auth/login \
+            | grep -q '"ok":true'
+
+          for path in /mit-overblik /mine-nyhedsbreve /vurderinger /bidrag; do
+            echo "AUTH GET $path"
+            curl --fail --silent --show-error \
+              -b /tmp/consumer.cookies \
+              "http://127.0.0.1:3000$path" >/dev/null
+          done
+
+      - name: Smoke editorial and admin role access
+        run: |
+          curl --fail --silent --show-error \
+            -c /tmp/admin.cookies \
+            -X POST \
+            -H 'Origin: http://127.0.0.1:3000' \
+            -H 'Content-Type: application/json' \
+            --data '{"email":"admin@demo.dk","password":"demo1234"}' \
+            http://127.0.0.1:3000/api/auth/login \
+            | grep -q '"ok":true'
+
+          for path in /studie /admin /admin/kilder /admin/publicering /admin/anerkendelse; do
+            echo "ADMIN GET $path"
+            curl --fail --silent --show-error \
+              -b /tmp/admin.cookies \
+              "http://127.0.0.1:3000$path" >/dev/null
+          done
+
+      - name: Smoke English locale rendering
+        run: |
+          curl --fail --silent --show-error \
+            -H 'Cookie: locale=en' \
+            http://127.0.0.1:3000/ \
+            | grep -q '<html lang="en"'
+
+      - name: Print server log on failure
+        if: failure()
+        run: cat /tmp/sporlag-server.log || true
