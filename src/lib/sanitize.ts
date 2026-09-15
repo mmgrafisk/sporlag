@@ -21,6 +21,8 @@ const BLOCK_TAGS = new Set([
   "h5", "h6", "section", "article", "header", "footer", "blockquote", "hr", "td", "th",
 ]);
 
+const HEADING_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
+
 const ENTITIES: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
   "#39": "'", "#8211": "–", "#8212": "—", "#8230": "…", ndash: "–",
@@ -73,9 +75,13 @@ export function normalizeMessage(rawHtml: string): NormalizedMessage {
 
   // Comments out
   html = html.replace(/<!--[\s\S]*?-->/g, " ");
-  // Block tags -> newline boundaries
+  // Block tags -> newline boundaries; HEADINGS -> "# "-marked section lines.
+  // The marker keeps offer-section structure visible in the normalized text
+  // (the extractor splits multi-offer emails on these sections) and mirrors
+  // the "#" heading convention reviewers already see in studio previews.
   html = html.replace(/<[^>]+>/g, (tag) => {
     const name = tag.replace(/^<\s*\/?\s*([a-zA-Z0-9]+).*$/s, "$1").toLowerCase();
+    if (HEADING_TAGS.has(name)) return tag.startsWith("</") ? "\n\n" : "\n\n# ";
     return BLOCK_TAGS.has(name) ? "\n" : " ";
   });
 

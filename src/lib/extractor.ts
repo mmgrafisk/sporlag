@@ -377,25 +377,39 @@ function extractClaim(text: string, regionStart: number, regionEnd: number): { h
   const META = /nyhedsbrev|newsletter|afmeld|unsubscribe|persondatapolitik|cookie/i;
 
   let headlineIdx = -1;
+  // 1) An explicit heading line ("# " marker from normalization) wins
   for (let i = 0; i < lineOffsets.length; i++) {
     const l = lineOffsets[i].line;
-    if (l.length >= 6 && l.length <= 120 && !META.test(l) && CLAIMY.test(l)) {
+    if (l.startsWith("# ") && l.length >= 8 && l.length <= 122 && !META.test(l) && CLAIMY.test(l)) {
       headlineIdx = i;
       break;
+    }
+  }
+  // 2) else the first claim-y line in document order
+  if (headlineIdx === -1) {
+    for (let i = 0; i < lineOffsets.length; i++) {
+      const l = lineOffsets[i].line;
+      if (l.length >= 6 && l.length <= 120 && !META.test(l) && CLAIMY.test(l)) {
+        headlineIdx = i;
+        break;
+      }
     }
   }
   if (headlineIdx === -1) return { headline: null, supporting: null };
 
   const head = lineOffsets[headlineIdx];
+  const marked = head.line.startsWith("# ");
+  const headline = marked ? head.line.slice(2) : head.line;
+  const hitStart = marked ? head.start + 2 : head.start;
   let supporting: string | null = null;
   for (let i = headlineIdx + 1; i < lineOffsets.length && i <= headlineIdx + 2; i++) {
     const l = lineOffsets[i].line;
-    if (l !== head.line && l.length >= 6 && l.length <= 160 && !META.test(l)) { supporting = l; break; }
+    if (l !== head.line && !l.startsWith("# ") && l.length >= 6 && l.length <= 160 && !META.test(l)) { supporting = l; break; }
   }
   return {
-    headline: head.line,
+    headline,
     supporting,
-    headlineHit: { span: head.line, start: head.start, end: head.end },
+    headlineHit: { span: headline, start: hitStart, end: head.end },
   };
 }
 
@@ -412,6 +426,20 @@ function inferOfferType(fields: ExtractedField[], text: string, regionStart: num
 // Offer region detection (multiple offers per message supported)
 // ---------------------------------------------------------------------------
 
+/** Sections delimited by "# "-heading lines (marker emitted by normalizeMessage). */
+function headingSections(text: string): { start: number; end: number }[] {
+  const marks: number[] = [];
+  const re = /^# /gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) marks.push(m.index);
+  if (!marks.length) return [{ start: 0, end: text.length }];
+  const sections: { start: number; end: number }[] = [];
+  if (marks[0] > 0) sections.push({ start: 0, end: marks[0] });
+  marks.forEach((pos, i) =>
+    sections.push({ start: pos, end: i + 1 < marks.length ? marks[i + 1] : text.length }));
+  return sections;
+}
+
 function findOfferRegions(text: string): { start: number; end: number }[] {
   const anchors: number[] = [];
   for (const re of [PER_MONTH_RE, /spar\s+\d/gi, /halv pris/gi, /\d{1,3}\s?%\s?rabat/gi, /gratis prøve/gi]) {
@@ -420,26 +448,42 @@ function findOfferRegions(text: string): { start: number; end: number }[] {
   if (!anchors.length) return [];
   anchors.sort((a, b) => a - b);
 
+  const sections = headingSections(text);
+  const sectionAt = (pos: number): { start: number; end: number } => {
+    for (let i = sections.length - 1; i >= 0; i--) if (sections[i].start <= pos) return sections[i];
+    return sections[0];
+  };
+
   const WINDOW = 1400; // characters; newsletter offers cluster tightly
-  const regions: { start: number; end: number }[] = [];
-  let cur = { start: anchors[0], end: anchors[0] + WINDOW };
+  const raw: { start: number; end: number; section: { start: number; end: number } }[] = [];
+  let cur = { start: anchors[0], end: anchors[0] + WINDOW, section: sectionAt(anchors[0]) };
   for (const a of anchors.slice(1)) {
-    if (a - cur.end < WINDOW / 2) {
+    const sec = sectionAt(a);
+    // NEVER merge anchors across heading sections — this is what makes
+    // multi-offer emails work even when the whole message is shorter than
+    // the clustering window.
+    if (sec.start === cur.section.start && a - cur.end < WINDOW / 2) {
       cur.end = Math.max(cur.end, a + WINDOW / 2);
     } else {
-      regions.push(cur);
-      cur = { start: a, end: a + WINDOW };
+      raw.push(cur);
+      cur = { start: a, end: a + WINDOW, section: sec };
     }
   }
-  regions.push(cur);
+  raw.push(cur);
 
-  // Snap to line boundaries and clamp
-  return regions.map((r) => {
-    let start = text.lastIndexOf("\n", Math.max(0, r.start - 300));
-    start = start === -1 ? 0 : start + 1;
-    let end = text.indexOf("\n\n", Math.min(text.length, r.end));
-    if (end === -1) end = text.length;
-    return { start, end: Math.min(text.length, end + 1) };
+  // Snap to line/section boundaries and clamp
+  return raw.map((r) => {
+    const sec = r.section;
+    let start: number;
+    if (r.start - sec.start < 500) {
+      start = sec.start; // include the section heading line
+    } else {
+      const nl = text.lastIndexOf("\n", Math.max(sec.start, r.start - 300));
+      start = nl === -1 || nl < sec.start ? sec.start : nl + 1;
+    }
+    let end = text.indexOf("\n\n", Math.min(sec.end, r.end));
+    if (end === -1 || end > sec.end) end = sec.end;
+    return { start, end: Math.min(text.length, end) };
   });
 }
 
