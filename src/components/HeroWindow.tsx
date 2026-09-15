@@ -26,7 +26,6 @@ export default function HeroWindow(props: { offers: PublicOfferRow[]; locale: Lo
   const terms = termsFromFields(active.fields, props.locale).slice(0, 5);
   const headline =
     (active.fields["headline"] as { text?: string } | undefined)?.text ?? active.claim_original;
-  const firstVersion = versionLabel(Math.max(1, active.version - active.total_versions + 1));
   const currentVersion = versionLabel(active.version);
 
   return (
@@ -91,14 +90,15 @@ export default function HeroWindow(props: { offers: PublicOfferRow[]; locale: Lo
             <ClockCounterClockwise size={17} aria-hidden="true" />
           </div>
           <div className="evidence-history-rail" aria-label={t("common.history")}>
-            <span>{firstVersion}</span>
-            <i aria-hidden="true">→</i>
+            <span>{active.total_versions} {t("common.versions").toLowerCase()}</span>
+            <i aria-hidden="true">·</i>
             <strong>{currentVersion}</strong>
           </div>
-          <p>
-            {active.total_versions} {t("common.versions").toLowerCase()}
-            {active.changed_fields.length > 0 ? ` · ${active.changed_fields.length} ${t("offer.changedFields").toLowerCase()}` : ""}
-          </p>
+          {active.changed_fields.length > 0 ? (
+            <p>{active.changed_fields.length} {t("offer.changedFields").toLowerCase()}</p>
+          ) : (
+            <p>{t("common.observed")} · {fmtDateShort(active.observed_at, props.locale)}</p>
+          )}
           <Link href={`/tilbud/${active.offer_id}#historik`} className="evidence-link">
             {t("common.history")} <ArrowRight size={15} weight="bold" />
           </Link>
