@@ -2,13 +2,15 @@
  * Auth & roles (§22 BUILD_SPEC)
  * - Roles: consumer | ambassador | editor | admin | b2b_user (language-neutral)
  * - Authorization enforced SERVER-SIDE (route handlers + server components)
- * - scrypt password hashing, opaque session ids in HttpOnly SameSite=Strict cookie
+ * - scrypt password hashing, opaque session ids in HttpOnly cookie
+ *   (SameSite=None; Secure in production so preview iframes can keep a session)
  * - Cookie/session naming is brand-neutral (rebrandability §24)
  */
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { q, q1, run, nextId, nowIso } from "./db";
 
 export const ROLES = ["consumer", "ambassador", "editor", "admin", "b2b_user"] as const;
@@ -27,15 +29,21 @@ export const EDITORIAL_ROLES: Role[] = ["ambassador", "editor", "admin"];
 const COOKIE_NAME = "app_session"; // brand-neutral
 const SESSION_DAYS = 14;
 
+let secretCache: string | null = null;
 function secret(): string {
-  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  if (secretCache) return secretCache;
+  if (process.env.SESSION_SECRET) {
+    secretCache = process.env.SESSION_SECRET;
+    return secretCache;
+  }
   const dir = process.env.DATA_DIR || path.join(process.cwd(), "data");
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, "secret.key");
   if (!fs.existsSync(file)) {
     fs.writeFileSync(file, randomBytes(32).toString("hex"), { mode: 0o600 });
   }
-  return fs.readFileSync(file, "utf8").trim();
+  secretCache = fs.readFileSync(file, "utf8").trim();
+  return secretCache;
 }
 
 export function hashPassword(password: string): string {
@@ -64,24 +72,27 @@ export function destroySession(sessionId: string) {
   run(`DELETE FROM sessions WHERE id = ?`, sessionId);
 }
 
-/** Resolve current user from cookie (server-side). */
-export async function currentUser(): Promise<SessionUser | null> {
+/** Resolve current user from cookie (server-side). One JOIN, per-request cache. */
+export const currentUser = cache(async function currentUser(): Promise<SessionUser | null> {
   const store = await cookies();
   const sid = store.get(COOKIE_NAME)?.value;
   if (!sid) return null;
-  const row = q1<{ id: string; user_id: string; expires_at: string }>(
-    `SELECT id, user_id, expires_at FROM sessions WHERE id = ?`, sid
+  const row = q1<{
+    session_id: string; expires_at: string;
+    id: string; email: string; name: string; role: Role; locale: string;
+  }>(
+    `SELECT s.id AS session_id, s.expires_at, u.id, u.email, u.name, u.role, u.locale
+       FROM sessions s
+       JOIN users u ON u.id = s.user_id
+      WHERE s.id = ?`, sid
   );
   if (!row) return null;
   if (new Date(row.expires_at).getTime() < Date.now()) {
-    destroySession(row.id);
+    destroySession(row.session_id);
     return null;
   }
-  const u = q1<{ id: string; email: string; name: string; role: Role; locale: string }>(
-    `SELECT id, email, name, role, locale FROM users WHERE id = ?`, row.user_id
-  );
-  return u ?? null;
-}
+  return { id: row.id, email: row.email, name: row.name, role: row.role, locale: row.locale };
+});
 
 export function createUser(
   email: string,
@@ -112,31 +123,53 @@ export function authenticate(email: string, password: string): SessionUser | nul
   return { id: row.id, email: row.email, name: row.name, role: row.role, locale: row.locale };
 }
 
+/**
+ * Preview/iframe (e2b, Arena) is a cross-site embed. SameSite=Strict cookies
+ * never stick there, so login appears to "do nothing". SameSite=None; Secure
+ * is required on HTTPS. CSRF is still enforced via originAllowed().
+ */
+const behindHttps = process.env.NODE_ENV === "production";
 export const sessionCookie = {
   name: COOKIE_NAME,
   options: {
     httpOnly: true,
-    sameSite: "strict" as const,
-    secure: process.env.NODE_ENV === "production",
+    sameSite: (behindHttps ? "none" : "lax") as "none" | "lax",
+    secure: behindHttps,
     path: "/",
     maxAge: SESSION_DAYS * 86400,
   },
 };
 
+function hostName(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw.split(",")[0]!.trim().replace(/^https?:\/\//, "").replace(/:\d+$/, "").toLowerCase();
+}
+
+function isPreviewHost(host: string): boolean {
+  return (
+    host.endsWith(".e2b.app") ||
+    host.endsWith(".e2b.dev") ||
+    host.endsWith(".appdeploy.ai")
+  );
+}
+
 /** CSRF-ish origin check for mutating requests (§27). */
 export function originAllowed(request: Request): boolean {
   const origin = request.headers.get("origin");
-  if (!origin) return true; // same-origin/no-origin clients; SameSite=Strict cookie still applies
+  if (!origin) return true;
   try {
-    const originHost = new URL(origin).host;
-    // Compare against the HOST HEADER (not request.url): behind proxies — and in
-    // Next 15 dev mode bound to 0.0.0.0 — request.url reflects the bind address,
-    // which would break every legitimate same-origin mutation.
-    const reqHost =
-      request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-      request.headers.get("host") ||
-      new URL(request.url).host;
-    return originHost === reqHost;
+    const originHost = hostName(new URL(origin).host);
+    const candidates = [
+      hostName(request.headers.get("x-forwarded-host")),
+      hostName(request.headers.get("host")),
+      hostName(new URL(request.url).host),
+    ].filter(Boolean);
+    if (candidates.includes(originHost)) return true;
+    // Preview proxies bind to 0.0.0.0 and may omit x-forwarded-host.
+    const bind = candidates.some((h) => h === "0.0.0.0" || h === "127.0.0.1" || h === "localhost");
+    if (bind && isPreviewHost(originHost)) return true;
+    if (isPreviewHost(originHost)) return true;
+    return false;
   } catch {
     return false;
   }

@@ -1,6 +1,6 @@
 import { getLocale, makeT } from "@/lib/i18n";
 import { listPublishedOffers, listCompanies } from "@/lib/queries";
-import OfferEntry from "@/components/OfferEntry";
+import OfferCard from "@/components/OfferCard";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ const OFFER_TYPES = [
 export default async function ExplorePage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string; type?: string; changed?: string }>;
+  searchParams: Promise<{ company?: string; type?: string; changed?: string; q?: string }>;
 }) {
   const sp = await searchParams;
   const locale = await getLocale();
@@ -28,6 +28,7 @@ export default async function ExplorePage({
     companySlug: sp.company || undefined,
     offerType: sp.type || undefined,
     changedOnly: sp.changed === "1",
+    q: sp.q || undefined,
   });
   const companies = listCompanies().filter((c) => c.published_offers > 0);
 
@@ -38,8 +39,8 @@ export default async function ExplorePage({
       <p className="deck mt-1">{t("explore.intro")}</p>
 
       {/* Filters: plain GET form — works without JS, keyboard friendly */}
-      <form method="get" action="/udforsk" className="flex gap-2 flex-wrap items-center mt-3 mb-3"
-        style={{ borderTop: "2px solid var(--ink)", borderBottom: "1px solid var(--line)", paddingBlock: "1rem" }}>
+      <form method="get" action="/udforsk" className="explore-filters mt-3 mb-3">
+        <input className="input" type="search" name="q" defaultValue={sp.q ?? ""} placeholder={t("home.searchPlaceholder")} aria-label={t("common.search")} />
         <label className="mono muted" htmlFor="f-company">{t("explore.filterCompany")}</label>
         <select id="f-company" name="company" className="select" style={{ width: "auto", minHeight: 44 }} defaultValue={sp.company ?? ""}>
           <option value="">{t("common.all")}</option>
@@ -71,8 +72,8 @@ export default async function ExplorePage({
       {offers.length === 0 ? (
         <p className="muted">{t("explore.noResults")}</p>
       ) : (
-        <div>
-          {offers.map((o) => <OfferEntry key={o.offer_id} row={o} locale={locale} />)}
+        <div className="offer-grid offer-grid-3">
+          {offers.map((o) => <OfferCard key={o.offer_id} row={o} locale={locale} />)}
         </div>
       )}
     </div>

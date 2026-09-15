@@ -1,18 +1,38 @@
 "use client";
 
-/** Sign up / login (§2 consumer account) — calm, factual, one form at a time. */
+/**
+ * Sign up / login (§2 consumer account) — calm, factual, one form at a time.
+ * Demo accounts are one-click so validation testers can reach admin/studio.
+ */
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+const DEMO = [
+  { email: "forbruger@demo.dk", role: "consumer" },
+  { email: "ambassadoer@demo.dk", role: "ambassador" },
+  { email: "redaktor@demo.dk", role: "editor" },
+  { email: "admin@demo.dk", role: "admin" },
+] as const;
 
 export default function AuthForms(props: {
   labels: Record<string, string>;
   next?: string;
+  initialMode?: "login" | "signup";
 }) {
   const router = useRouter();
   const L = props.labels;
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup">(props.initialMode ?? "login");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const fillDemo = (addr: string) => {
+    setMode("login");
+    setEmail(addr);
+    setPassword("demo1234");
+    setError(null);
+  };
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -24,27 +44,36 @@ export default function AuthForms(props: {
       password: String(form.get("password") ?? ""),
     };
     if (mode === "signup") payload.name = String(form.get("name") ?? "");
-    const res = await fetch(`/api/auth/${mode === "signup" ? "signup" : "login"}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    setBusy(false);
-    if (res.ok) {
-      router.push(props.next ?? "/mit-overblik");
-      router.refresh();
-    } else {
+    try {
+      const res = await fetch(`/api/auth/${mode === "signup" ? "signup" : "login"}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       const data = await res.json().catch(() => ({}));
-      setError(mode === "signup" ? (data.error ?? L.signupError) : L.error);
+      if (res.ok) {
+        router.push(props.next ?? "/mit-overblik");
+        router.refresh();
+        return;
+      }
+      const key = typeof data.error === "string" ? data.error : "";
+      if (key === "auth.errCsrf") setError(L.errorCsrf ?? L.error);
+      else if (mode === "signup") setError(L.signupError);
+      else setError(L.error);
+    } catch {
+      setError(L.error);
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <div className="paper" style={{ padding: "clamp(1.5rem,4vw,2.5rem)", maxWidth: "28rem" }}>
+    <div className="paper auth-card">
       <div className="flex gap-2 mb-3" role="tablist" aria-label={mode === "signup" ? L.signupTitle : L.loginTitle}>
         <button
           type="button" role="tab" aria-selected={mode === "login"}
-          className={`chip ${mode === "login" ? "" : ""}`} data-on={mode === "login" ? "true" : undefined}
+          className="chip" data-on={mode === "login" ? "true" : undefined}
           style={{ minHeight: 44, fontSize: "0.85rem" }}
           onClick={() => setMode("login")}
         >
@@ -71,12 +100,14 @@ export default function AuthForms(props: {
         )}
         <div className="field">
           <label htmlFor="email">{L.email}</label>
-          <input className="input" id="email" name="email" type="email" required autoComplete="email" />
+          <input className="input" id="email" name="email" type="email" required autoComplete="email"
+            value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div className="field">
           <label htmlFor="password">{L.password}</label>
           <input className="input" id="password" name="password" type="password" required minLength={8}
-            autoComplete={mode === "signup" ? "new-password" : "current-password"} />
+            autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            value={password} onChange={(e) => setPassword(e.target.value)} />
           {mode === "signup" && <span className="hint">{L.passwordHint}</span>}
         </div>
         <button type="submit" className="btn" disabled={busy} style={{ width: "100%" }}>
@@ -84,7 +115,20 @@ export default function AuthForms(props: {
         </button>
       </form>
 
-      <p className="small muted mt-2">{L.demoNote}</p>
+      {mode === "login" && (
+        <div className="demo-accounts">
+          <p className="mono muted mb-1">{L.demoPick}</p>
+          <div className="flex flex-wrap gap-1">
+            {DEMO.map((d) => (
+              <button key={d.email} type="button" className="chip" style={{ minHeight: 36 }}
+                onClick={() => fillDemo(d.email)}>
+                {d.email}
+              </button>
+            ))}
+          </div>
+          <p className="small muted mt-1">{L.demoNote}</p>
+        </div>
+      )}
     </div>
   );
 }

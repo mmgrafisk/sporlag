@@ -2,8 +2,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getLocale, makeT } from "@/lib/i18n";
 import { currentUser } from "@/lib/auth";
-import { userSelections } from "@/lib/queries";
-import { q } from "@/lib/db";
+import { userSelections, listAvailableSources } from "@/lib/queries";
 import { fmtDateShort } from "@/lib/format";
 import NewsletterManager from "@/components/NewsletterManager";
 
@@ -27,17 +26,7 @@ export default async function MyNewslettersPage() {
     last_change_fmt: s.last_change ? fmtDateShort(s.last_change, locale) : "—",
   }));
 
-  const available = q<{
-    source_id: string; source_name: string; company_name: string; company_slug: string; published_offers: number;
-  }>(
-    `SELECT s.id AS source_id, s.name AS source_name, c.name AS company_name, c.slug AS company_slug,
-            (SELECT COUNT(DISTINCT o.id) FROM offers o JOIN offer_versions ov ON ov.offer_id = o.id
-              WHERE o.company_id = c.id AND ov.publication_status = 'published') AS published_offers
-       FROM newsletter_sources s
-       JOIN companies c ON c.id = s.company_id
-      WHERE s.status = 'active'
-      ORDER BY c.name COLLATE NOCASE`
-  );
+  const available = listAvailableSources();
 
   return (
     <div className="wrap section" style={{ paddingTop: "clamp(2rem,5vw,3.5rem)" }}>

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getLocale, makeT } from "@/lib/i18n";
 import { currentUser, EDITORIAL_ROLES } from "@/lib/auth";
-import { getMessagePrivate, getExtractionsForMessage, getExtractionFields, getMatchCandidates } from "@/lib/queries";
+import { getMessagePrivate, getStudioBundle } from "@/lib/queries";
+import { parseJson } from "@/lib/db";
 import { fmtFieldValue, fmtDate } from "@/lib/format";
 import { EXTRACTOR_VERSION } from "@/lib/extractor";
 import StudioMessage, { type StudioExtraction } from "@/components/StudioMessage";
@@ -21,25 +22,28 @@ export default async function StudioMessagePage({ params }: { params: Promise<{ 
   const m = getMessagePrivate(messageId);
   if (!m) notFound();
 
-  const extractions: StudioExtraction[] = getExtractionsForMessage(messageId).map((ex) => {
-    const fields = getExtractionFields(ex.id).map((f) => ({
-      id: f.id,
-      field: f.field,
-      label: t(`field.${f.field}`),
-      valueFmt: fmtFieldValue(JSON.parse(f.value_json), locale),
-      valueJson: JSON.parse(f.value_json),
-      evidence_span: f.evidence_span,
-      locator: { start: f.locator_start, end: f.locator_end },
-      confidence: f.confidence,
-      extractor_version: f.extractor_version,
-      verification_status: f.verification_status,
-    }));
-    const match_candidates = getMatchCandidates(ex.id).map((mc) => ({
+  const extractions: StudioExtraction[] = getStudioBundle(messageId).map((ex) => {
+    const fields = ex.fields.map((f) => {
+      const valueJson = parseJson(f.value_json, null);
+      return {
+        id: f.id,
+        field: f.field,
+        label: t(`field.${f.field}`),
+        valueFmt: fmtFieldValue(valueJson, locale),
+        valueJson,
+        evidence_span: f.evidence_span,
+        locator: { start: f.locator_start, end: f.locator_end },
+        confidence: f.confidence,
+        extractor_version: f.extractor_version,
+        verification_status: f.verification_status,
+      };
+    });
+    const match_candidates = ex.matches.map((mc) => ({
       id: mc.id,
       candidate_offer_id: mc.candidate_offer_id,
       confidence: mc.confidence,
-      reason_codes: JSON.parse(mc.reason_codes_json) as string[],
-      changed_fields: JSON.parse(mc.changed_fields_json) as string[],
+      reason_codes: parseJson<string[]>(mc.reason_codes_json, []),
+      changed_fields: parseJson<string[]>(mc.changed_fields_json, []),
       reviewer_decision: mc.reviewer_decision,
       claim_original: mc.claim_original,
       version: mc.version,

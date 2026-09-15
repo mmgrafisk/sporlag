@@ -21,6 +21,22 @@ export default async function SourcesAdminPage() {
       <p className="deck">{t("admin.sourcesIntro")}</p>
 
       <div className="grid-2 mt-3" style={{ alignItems: "start" }}>
+        <ActionForm
+          endpoint="/api/internal/companies"
+          title={t("admin.createCompany")}
+          intro={t("admin.createCompanyIntro")}
+          submitLabel={t("admin.createCompany")}
+          successLabel={t("admin.companyCreated")}
+          errorLabel={t("admin.formError")}
+          fields={[
+            { name: "name", label: t("admin.companyName"), required: true },
+            { name: "website", label: t("admin.companyWebsite"), hint: "https://…" },
+            { name: "category", label: t("admin.companyCategory") },
+          ]}
+        />
+      </div>
+
+      <div className="grid-2 mt-3" style={{ alignItems: "start" }}>
         <div className="data-table-wrap">
           <table className="data-table">
             <thead>

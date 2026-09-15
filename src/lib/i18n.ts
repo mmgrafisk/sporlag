@@ -7,6 +7,7 @@
  *   evidence spans keep their original language (source_language column).
  */
 import { cookies } from "next/headers";
+import { cache } from "react";
 import daDK from "../../locales/da-DK.json";
 import en from "../../locales/en.json";
 

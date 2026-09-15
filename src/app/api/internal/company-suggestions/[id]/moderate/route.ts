@@ -1,6 +1,7 @@
 import { requireRole, json, err, body, ADMIN } from "@/lib/api";
-import { q1, run, nextId, nowIso } from "@/lib/db";
+import { q1, run, nowIso } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { insertCompanyRecord, ensureCompanyLogo } from "@/lib/logos";
 
 export const dynamic = "force-dynamic";
 
@@ -27,18 +28,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   let matchedCompanyId: string | null = b?.matched_company_id ?? null;
   if (action === "approve") {
-    const slug = sug.company_name
-      .toLowerCase()
-      .replace(/[^a-z0-9æøå]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .replace(/æ/g, "ae").replace(/ø/g, "oe").replace(/å/g, "aa");
-    const companyId = nextId("company", "companies");
-    run(
-      `INSERT INTO companies (id, name, slug, market, category, status, created_at, updated_at)
-       VALUES (?, ?, ?, 'DK', NULL, 'active', ?, ?)`,
-      companyId, sug.company_name, slug, nowIso(), nowIso()
-    );
-    matchedCompanyId = companyId;
+    const created = insertCompanyRecord({ name: sug.company_name });
+    matchedCompanyId = created.id;
+    await ensureCompanyLogo({
+      slug: created.slug,
+      name: sug.company_name,
+      website: created.website,
+      companyId: created.id,
+    });
   }
 
   run(

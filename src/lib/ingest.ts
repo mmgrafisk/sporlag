@@ -5,7 +5,7 @@
  * Pipeline: receive → sanitize/normalize → fingerprint (duplicate protection)
  *           → extract → review.
  */
-import { q1, run, nextId, nowIso } from "./db";
+import { q1, run, nextId, nowIso, tx } from "./db";
 import { normalizeMessage, sanitizeHtml } from "./sanitize";
 import { extractOffers } from "./extractor";
 import { persistExtraction, setMessageState } from "./versioning";
@@ -30,35 +30,37 @@ export function ingestMessage(opts: {
 
   const { text, links, fingerprint } = normalizeMessage(opts.rawHtml);
 
-  // Duplicate protection (§27): identical normalized content is reviewable, not silently re-processed
-  const dupe = q1<{ id: string }>(
-    `SELECT id FROM messages WHERE content_fingerprint = ?`, fingerprint
-  );
-  if (dupe) {
-    const dupId = nextId("message", "messages");
+  return tx(() => {
+    // Duplicate protection (§27): identical normalized content is reviewable, not silently re-processed
+    const dupe = q1<{ id: string }>(
+      `SELECT id FROM messages WHERE content_fingerprint = ?`, fingerprint
+    );
+    if (dupe) {
+      const dupId = nextId("message", "messages");
+      run(
+        `INSERT INTO messages
+          (id, source_id, received_at, subject_private, body_raw_private, body_normalized_private,
+           links_json, headers_min_json, state, content_fingerprint, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, '{}', 'DUPLICATE', ?, ?)`,
+        dupId, opts.sourceId, opts.receivedAt ?? nowIso(), opts.subject,
+        opts.rawHtml, text, JSON.stringify(links), fingerprint, nowIso()
+      );
+      logAudit(opts.actorId, "message.ingested", "message", dupId, { duplicate_of: dupe.id });
+      return { ok: true, messageId: dupId, duplicate: true, existingMessageId: dupe.id };
+    }
+
+    const id = nextId("message", "messages");
     run(
       `INSERT INTO messages
         (id, source_id, received_at, subject_private, body_raw_private, body_normalized_private,
          links_json, headers_min_json, state, content_fingerprint, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, '{}', 'DUPLICATE', ?, ?)`,
-      dupId, opts.sourceId, opts.receivedAt ?? nowIso(), opts.subject,
-      opts.rawHtml, text, JSON.stringify(links), fingerprint, nowIso()
+       VALUES (?, ?, ?, ?, ?, ?, ?, '{}', 'RECEIVED', ?, ?)`,
+      id, opts.sourceId, opts.receivedAt ?? nowIso(), opts.subject,
+      sanitizeHtml(opts.rawHtml), text, JSON.stringify(links), fingerprint, nowIso()
     );
-    logAudit(opts.actorId, "message.ingested", "message", dupId, { duplicate_of: dupe.id });
-    return { ok: true, messageId: dupId, duplicate: true, existingMessageId: dupe.id };
-  }
-
-  const id = nextId("message", "messages");
-  run(
-    `INSERT INTO messages
-      (id, source_id, received_at, subject_private, body_raw_private, body_normalized_private,
-       links_json, headers_min_json, state, content_fingerprint, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, '{}', 'RECEIVED', ?, ?)`,
-    id, opts.sourceId, opts.receivedAt ?? nowIso(), opts.subject,
-    sanitizeHtml(opts.rawHtml), text, JSON.stringify(links), fingerprint, nowIso()
-  );
-  logAudit(opts.actorId, "message.ingested", "message", id, { source_id: opts.sourceId });
-  return { ok: true, messageId: id, duplicate: false };
+    logAudit(opts.actorId, "message.ingested", "message", id, { source_id: opts.sourceId });
+    return { ok: true, messageId: id, duplicate: false };
+  });
 }
 
 /** Run the extractor over a received message (state machine §7). */

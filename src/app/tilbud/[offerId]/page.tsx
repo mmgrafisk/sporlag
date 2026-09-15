@@ -10,6 +10,7 @@ import CommunitySummaryView from "@/components/CommunitySummaryView";
 import RecognitionStamp from "@/components/RecognitionStamp";
 import DiffBlock from "@/components/DiffBlock";
 import { FileMagnifyingGlass, UsersThree, ClockCounterClockwise } from "@phosphor-icons/react/dist/ssr";
+import CompanyMark from "@/components/CompanyMark";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ of
   if (!offer) notFound();
 
   const latest = offer.latest;
-  const fields = JSON.parse(latest.fields_json) as Record<string, unknown>;
+  const fields = latest.fields;
   const headline = (fields["headline"] as { text?: string } | undefined)?.text ?? offer.latest.claim_original;
   const supporting = (fields["supporting_claim"] as { text?: string } | undefined)?.text ?? null;
   const advertised = fields["advertised_price"];
@@ -56,9 +57,10 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ of
             <Link href="/udforsk">{t("explore.title")}</Link> ·{" "}
             <Link href={`/virksomheder/${offer.company_slug}`}>{t("common.companies")}</Link>
           </p>
-          <p className="mono mt-1" style={{ color: "var(--primary)", fontWeight: 600 }}>
+          <p className="company-entry-link mt-1" style={{ color: "var(--primary)", fontWeight: 600 }}>
+            <CompanyMark name={offer.company_name} slug={offer.company_slug} size={40} src={offer.company_logo_path} />
             <Link href={`/virksomheder/${offer.company_slug}`} style={{ color: "inherit" }}>{offer.company_name}</Link>
-            {" · "}{t("common.observed")} {fmtDate(latest.observed_at, locale)}
+            <span className="muted"> · {t("common.observed")} {fmtDate(latest.observed_at, locale)}</span>
           </p>
           <h1 className="mt-1">{offer.latest.claim_original}</h1>
           <p className="flex gap-1 flex-wrap items-center mt-2">
@@ -120,7 +122,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ of
                 {i > 0 && <span className="version-arrow" aria-hidden="true">→</span>}
                 <a className="version-node" href={`#historik`}
                   data-current={v.id === latest.id ? "true" : undefined}
-                  data-changed={JSON.parse(v.changed_fields_json).length > 0 ? "true" : undefined}>
+                  data-changed={v.changed_fields.length > 0 ? "true" : undefined}>
                   {versionLabel(v.version)}
                 </a>
               </span>
@@ -152,7 +154,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ of
                   sampleSize={rec.sample_size}
                   verifiedLabel={t("recognition.verifiedBy")}
                   isVerified={!!rec.verified_by}
-                  dimensions={JSON.parse(rec.dimensions_json)}
+                  dimensions={rec.dimensions}
                   dimensionLabels={Object.fromEntries(
                     ["claim_clarity", "price_clarity", "condition_visibility", "time_clarity", "promise_consistency"]
                       .map((k) => [k, t(`enum.dimension.${k}`)])
@@ -197,7 +199,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ of
         <section id="evidens" className="offer-section">
           <div className="offer-section-head">
             <span className="chapter-no" style={{ margin: 0 }}>03</span>
-            <h2><FileMagnifyingGlass size={26} weight="duotone" style={{ verticalAlign: -4, marginRight: 10, color: "var(--primary)" }} aria-hidden="true" />{t("offer.evidenceTitle")}</h2>
+            <h2><FileMagnifyingGlass size={32} weight="duotone" style={{ verticalAlign: -6, marginRight: 10, color: "var(--primary)" }} aria-hidden="true" />{t("offer.evidenceTitle")}</h2>
           </div>
           <p className="deck">{t("offer.evidenceIntro")}</p>
           <div className="stack mt-3" style={{ maxWidth: "48rem" }}>
@@ -220,7 +222,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ of
         <section id="community" className="offer-section">
           <div className="offer-section-head">
             <span className="chapter-no" style={{ margin: 0 }}>04</span>
-            <h2><UsersThree size={26} weight="duotone" style={{ verticalAlign: -4, marginRight: 10, color: "var(--primary)" }} aria-hidden="true" />{t("offer.communityTitle")}</h2>
+            <h2><UsersThree size={32} weight="duotone" style={{ verticalAlign: -6, marginRight: 10, color: "var(--primary)" }} aria-hidden="true" />{t("offer.communityTitle")}</h2>
           </div>
           <p className="deck">{t("offer.communityIntro")}</p>
           <div className="grid-2 mt-2" style={{ alignItems: "start" }}>
@@ -259,7 +261,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ of
           <div className="stack mt-3" style={{ maxWidth: "52rem" }}>
             {[...offer.publishedVersions].reverse().map((v) => {
               const vChanges = offer.changes.filter((c) => c.successor_version_id === v.id);
-              const vFields = JSON.parse(v.fields_json) as Record<string, unknown>;
+              const vFields = v.fields;
               return (
                 <article key={v.id} className="history-sheet" data-current={v.id === latest.id ? "true" : undefined}>
                   <div className="history-sheet-head">
@@ -287,8 +289,8 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ of
                           <DiffBlock
                             key={c.id}
                             fieldLabel={t(`field.${c.field}`)}
-                            oldValue={JSON.parse(c.old_value_json)}
-                            newValue={JSON.parse(c.new_value_json)}
+                            oldValue={c.old_value}
+                            newValue={c.new_value}
                             locale={locale}
                             changeLabel={t("offer.changeLabel")}
                             fromVersion={prev?.version}

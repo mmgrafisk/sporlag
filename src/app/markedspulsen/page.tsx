@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getLocale, makeT, type Locale } from "@/lib/i18n";
+import { getLocale, makeT } from "@/lib/i18n";
 import { pulseIssues, platformStats } from "@/lib/queries";
 import { fmtDate, fmtNumber } from "@/lib/format";
 
@@ -24,6 +24,12 @@ export default async function PulsePage() {
   const issues = pulseIssues();
   const stats = platformStats();
   const latest = issues[0] ?? null;
+  const allBlocks = latest
+    ? (JSON.parse(latest.blocks_json) as Record<string, Record<string, BlockContent>>)
+    : null;
+  const localeBlocks = allBlocks
+    ? (allBlocks[locale === "da-DK" ? "da" : "en"] ?? allBlocks["da"])
+    : null;
 
   const blockOrder: { key: string; labelKey: string }[] = [
     { key: "clearest", labelKey: "pulse.block.clearest" },
@@ -56,9 +62,8 @@ export default async function PulsePage() {
             </p>
           </header>
 
-          {blockOrder.map((b, i) => {
-            const blocks = JSON.parse(latest.blocks_json) as Record<string, Record<string, BlockContent>>;
-            const content = (blocks[locale === "da-DK" ? "da" : "en"] ?? blocks["da"])[b.key];
+          {localeBlocks && blockOrder.map((b, i) => {
+            const content = localeBlocks[b.key];
             if (!content) return null;
             return (
               <section key={b.key} className="pulse-block">

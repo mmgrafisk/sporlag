@@ -49,12 +49,9 @@ export default async function MethodologyPage() {
       <section className="mt-4" aria-labelledby="pipeline-h">
         <span className="chapter-no">01</span>
         <h2 id="pipeline-h">{t("methodology.pipelineTitle")}</h2>
-        <ol style={{ listStyle: "none", margin: "1.5rem 0 0", padding: 0, counterReset: "pipe" }}>
+        <ol style={{ listStyle: "none", margin: "1.5rem 0 0", padding: 0 }}>
           {steps.map((s, i) => (
-            <li key={i} style={{
-              display: "grid", gridTemplateColumns: "3.4rem 1fr", gap: "0.8rem",
-              paddingBlock: "1rem", borderBottom: "1px solid var(--line)",
-            }}>
+            <li key={i} className="pipeline-step">
               <span className="mono" style={{ color: "var(--oxide)" }}>{String(i + 1).padStart(2, "0")}</span>
               <span>{s}</span>
             </li>

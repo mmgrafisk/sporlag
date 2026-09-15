@@ -17,11 +17,11 @@ export async function GET(request: Request) {
       company: { id: o.company_id, name: o.company_name, slug: o.company_slug },
       offer_type: o.offer_type,
       claim: o.claim_original,
-      fields: JSON.parse(o.fields_json),
+      fields: o.fields,
       version: o.version,
       total_versions: o.total_versions,
       observed_at: o.observed_at,
-      changed_fields: JSON.parse(o.changed_fields_json),
+      changed_fields: o.changed_fields,
       recognition: o.recognition_verified && o.recognition_status ? o.recognition_status : null,
     })),
   });

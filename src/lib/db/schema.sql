@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS companies (
   market        TEXT NOT NULL DEFAULT 'DK',  -- language-neutral
   category      TEXT,                        -- telecom, streaming, energy...
   status        TEXT NOT NULL DEFAULT 'active', -- active | inactive
+  website       TEXT,                        -- official site, used to fetch logo on add
+  logo_path     TEXT,                        -- public path e.g. /logos/telmore.png
   created_at    TEXT NOT NULL,
   updated_at    TEXT NOT NULL
 );
@@ -56,6 +58,7 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE INDEX IF NOT EXISTS idx_messages_source ON messages(source_id);
 CREATE INDEX IF NOT EXISTS idx_messages_state ON messages(state);
+CREATE INDEX IF NOT EXISTS idx_messages_fingerprint ON messages(content_fingerprint);
 
 -- ---------- EVIDENCE STORE ----------
 
@@ -76,6 +79,7 @@ CREATE TABLE IF NOT EXISTS extractions (
   created_at         TEXT NOT NULL,
   UNIQUE (message_id, offer_index)
 );
+CREATE INDEX IF NOT EXISTS idx_extractions_message ON extractions(message_id);
 
 -- Provenance envelope (§6): every derived field carries evidence + confidence.
 CREATE TABLE IF NOT EXISTS extraction_fields (
@@ -93,6 +97,7 @@ CREATE TABLE IF NOT EXISTS extraction_fields (
   verified_at         TEXT,
   UNIQUE (extraction_id, field)
 );
+CREATE INDEX IF NOT EXISTS idx_efields_extraction ON extraction_fields(extraction_id);
 
 -- Human corrections = Verified Offer Dataset (§10)
 CREATE TABLE IF NOT EXISTS human_corrections (
@@ -128,6 +133,9 @@ CREATE TABLE IF NOT EXISTS offers (
   last_seen          TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_offers_company ON offers(company_id);
+CREATE INDEX IF NOT EXISTS idx_offers_campaign ON offers(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_company ON campaigns(company_id);
+CREATE INDEX IF NOT EXISTS idx_sources_company ON newsletter_sources(company_id);
 
 CREATE TABLE IF NOT EXISTS offer_versions (
   id                    TEXT PRIMARY KEY,    -- offer_version_004
@@ -151,6 +159,9 @@ CREATE TABLE IF NOT EXISTS offer_versions (
 );
 CREATE INDEX IF NOT EXISTS idx_versions_offer ON offer_versions(offer_id);
 CREATE INDEX IF NOT EXISTS idx_versions_pub ON offer_versions(publication_status);
+CREATE INDEX IF NOT EXISTS idx_versions_pub_offer ON offer_versions(publication_status, offer_id, version);
+CREATE INDEX IF NOT EXISTS idx_versions_message ON offer_versions(message_id);
+CREATE INDEX IF NOT EXISTS idx_versions_observed ON offer_versions(publication_status, observed_at);
 
 -- Approved evidence for public projection (excerpts only — raw stays private)
 CREATE TABLE IF NOT EXISTS evidence (
@@ -176,6 +187,8 @@ CREATE TABLE IF NOT EXISTS version_changes (
   changed_at             TEXT NOT NULL,
   evidence_ref           TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_vchanges_successor ON version_changes(successor_version_id);
+CREATE INDEX IF NOT EXISTS idx_vchanges_changed ON version_changes(changed_at);
 
 -- Matching audit (§11): layered candidates + reviewer override
 CREATE TABLE IF NOT EXISTS match_candidates (
@@ -190,6 +203,7 @@ CREATE TABLE IF NOT EXISTS match_candidates (
   decided_at         TEXT,
   created_at         TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_match_extraction ON match_candidates(extraction_id);
 
 -- ---------- COMMUNITY ----------
 
@@ -210,6 +224,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 
 CREATE TABLE IF NOT EXISTS contributor_profiles (
   user_id             TEXT PRIMARY KEY REFERENCES users(id),

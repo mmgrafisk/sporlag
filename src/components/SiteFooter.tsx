@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Locale } from "@/lib/i18n";
+import BrandMark from "@/components/BrandMark";
 
 type Props = {
   brandName: string;
@@ -15,7 +16,10 @@ export default function SiteFooter({ brandName, brandTagline, labels }: Props) {
       <div className="wrap-wide">
         <div className="colophon-grid">
           <div>
-            <div className="colophon-brand">{brandName}</div>
+            <div className="colophon-brand">
+              <BrandMark size={40} />
+              <span>{brandName}</span>
+            </div>
             <p className="small muted mt-1">{brandTagline}</p>
             <p className="small muted">{labels.colophon}</p>
             <p className="notice small mt-2" style={{ maxWidth: "34rem" }}>

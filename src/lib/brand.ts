@@ -6,7 +6,8 @@
  * schema or URLs may depend on the working name. Rebranding = edit this
  * config (or the brand_config table / admin Konfiguration page).
  */
-import { q1, run, nowIso } from "./db";
+import { cache } from "react";
+import { q, q1, run, nowIso } from "./db";
 
 export type BrandConfig = {
   name: string;
@@ -29,7 +30,7 @@ export type BrandConfig = {
 export const DEFAULT_BRAND: BrandConfig = {
   name: process.env.BRAND_NAME || "SPORLAG",
   logo: "layers",
-  tagline: "Markedet, lag for lag.",
+  tagline: "Markedet i kontekst",
   recognitionName: "Tydeligt dokumenteret",
   publicUrl: process.env.BRAND_PUBLIC_URL || "http://localhost:3000",
   emailSender: process.env.BRAND_EMAIL_SENDER || "inbox@platform.local",
@@ -53,21 +54,17 @@ const OVERRIDABLE_KEYS = [
   "brand.emailSender",
 ] as const;
 
-/** Brand with DB overrides applied (admin → Konfiguration). */
-export function getBrand(): BrandConfig {
+/** Brand with DB overrides applied (admin → Konfiguration). One query, per-request cache. */
+export const getBrand = cache(function getBrand(): BrandConfig {
   const brand: BrandConfig = { ...DEFAULT_BRAND, colors: { ...DEFAULT_BRAND.colors } };
-  for (const key of OVERRIDABLE_KEYS) {
-    const row = q1<{ value: string }>(
-      `SELECT value FROM brand_config WHERE key = ?`,
-      key
-    );
-    if (row) {
-      const prop = key.replace("brand.", "") as keyof BrandConfig;
-      (brand as Record<string, unknown>)[prop] = row.value;
-    }
+  const rows = q<{ key: string; value: string }>(`SELECT key, value FROM brand_config`);
+  for (const row of rows) {
+    if (!(OVERRIDABLE_KEYS as readonly string[]).includes(row.key)) continue;
+    const prop = row.key.replace("brand.", "") as keyof BrandConfig;
+    (brand as Record<string, unknown>)[prop] = row.value;
   }
   return brand;
-}
+});
 
 export function setBrandValue(key: string, value: string) {
   if (!OVERRIDABLE_KEYS.includes(key as (typeof OVERRIDABLE_KEYS)[number])) {
