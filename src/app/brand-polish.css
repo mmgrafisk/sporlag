@@ -1,0 +1,286 @@
+/* SPORLAG working-brand polish
+   Keeps the product inside the Living Market / Evidence Editorial territory:
+   layered documents, provenance, restrained geometry, no SaaS glass/gradient treatment. */
+
+.hero-evidence {
+  min-height: 440px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 0 2rem;
+}
+
+.evidence-stack {
+  width: min(100%, 39rem);
+  min-height: 410px;
+  position: relative;
+  isolation: isolate;
+}
+
+.evidence-sheet {
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 7px 9px 0 rgba(18, 32, 27, 0.08);
+  overflow: hidden;
+}
+
+.evidence-sheet-front {
+  width: 72%;
+  min-height: 300px;
+  position: absolute;
+  inset: 1rem auto auto 0;
+  z-index: 3;
+  transform: rotate(-1.25deg);
+  border-color: var(--ink);
+}
+
+.evidence-sheet-back {
+  width: 68%;
+  min-height: 310px;
+  position: absolute;
+  inset: 3.25rem 0 auto auto;
+  z-index: 2;
+  transform: rotate(1.6deg);
+}
+
+.evidence-history-sheet {
+  position: absolute;
+  z-index: 4;
+  left: 15%;
+  right: 7%;
+  bottom: 0;
+  background: var(--primary);
+  color: var(--paper);
+  border: 1px solid var(--primary-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem 1rem 1rem;
+  box-shadow: 5px 7px 0 rgba(18, 32, 27, 0.12);
+}
+
+.evidence-sheet-head,
+.evidence-history-head {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.62rem 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.evidence-sheet-front .evidence-sheet-head {
+  background: var(--signal-lime);
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+
+.evidence-sheet-back .evidence-sheet-head {
+  background: var(--soft-surface);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.evidence-sheet-body {
+  padding: 1.15rem 1.2rem 1.3rem;
+}
+
+.evidence-company-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.evidence-company-row > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.evidence-company-row strong {
+  line-height: 1.1;
+}
+
+.evidence-company-row span {
+  color: var(--muted-ink);
+  font-size: 0.78rem;
+}
+
+.evidence-claim {
+  margin: 1.4rem 0 0.7rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 3.4vw, 2.35rem);
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  max-width: 12em;
+}
+
+.evidence-observed {
+  margin: 0 0 1.35rem;
+  color: var(--muted-ink);
+}
+
+.evidence-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.evidence-terms {
+  margin: 0;
+  padding: 0.65rem 1rem 0.85rem;
+}
+
+.evidence-terms > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(7rem, auto);
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.evidence-terms > div:last-child {
+  border-bottom: 0;
+}
+
+.evidence-terms dt {
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+}
+
+.evidence-terms dd {
+  margin: 0;
+  text-align: right;
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.evidence-source {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+
+.evidence-history-head {
+  padding: 0 0 0.55rem;
+  border-bottom: 1px solid rgba(255,255,255,0.3);
+  color: var(--paper);
+}
+
+.evidence-history-rail {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+}
+
+.evidence-history-rail span {
+  opacity: 0.7;
+}
+
+.evidence-history-rail strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0.18rem 0.45rem;
+  background: var(--signal-lime);
+  color: var(--ink);
+  border-radius: 3px;
+}
+
+.evidence-history-sheet p {
+  margin: 0.55rem 0 0.65rem;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.76);
+}
+
+.evidence-history-sheet .evidence-link {
+  color: var(--paper);
+}
+
+.evidence-history-sheet .evidence-link:hover {
+  color: var(--signal-lime);
+}
+
+/* Preserve the strong consumer readability introduced in the current branch,
+   but pull generic rounded-card styling back toward the editorial system. */
+.offer-card,
+.pulse-panel,
+.community-panel {
+  border-radius: var(--radius-md);
+}
+
+.offer-card {
+  box-shadow: 0 1px 0 rgba(18, 32, 27, 0.04);
+}
+
+.offer-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 4px 5px 0 rgba(18, 32, 27, 0.08);
+}
+
+/* Keep the category identity in the information itself, not background decoration. */
+.hero-blobs,
+.pw-chrome,
+.product-window,
+.pw-body,
+.pw-inbox,
+.pw-bridge,
+.pw-detail {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .hero-evidence {
+    min-height: 540px;
+    padding-top: 0.3rem;
+  }
+
+  .evidence-stack {
+    min-height: 515px;
+  }
+
+  .evidence-sheet-front,
+  .evidence-sheet-back {
+    width: calc(100% - 1.5rem);
+  }
+
+  .evidence-sheet-front {
+    inset: 0 auto auto 0;
+    transform: none;
+  }
+
+  .evidence-sheet-back {
+    inset: 12.7rem 0 auto auto;
+    transform: none;
+  }
+
+  .evidence-history-sheet {
+    left: 0.75rem;
+    right: 0;
+    bottom: 0;
+  }
+
+  .evidence-claim {
+    font-size: 1.62rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .evidence-sheet-front,
+  .evidence-sheet-back {
+    transform: none;
+  }
+}
