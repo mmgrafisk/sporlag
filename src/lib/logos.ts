@@ -96,10 +96,11 @@ async function download(url: string, timeoutMs = 5000): Promise<{ buf: Buffer; c
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
+    const agentName = (process.env.BRAND_NAME || "OfferGraph").replace(/[^A-Za-z0-9_-]/g, "");
     const res = await fetch(url, {
       signal: ctrl.signal,
       redirect: "follow",
-      headers: { "User-Agent": "SporlagLogoBot/1.0 (+https://localhost)" },
+      headers: { "User-Agent": `${agentName || "OfferGraph"}LogoBot/1.0` },
     });
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") ?? "";

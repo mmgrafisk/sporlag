@@ -63,6 +63,7 @@ export default async function CompanyProfilePage({ params }: { params: Promise<{
                   receiving: t("company.ctaReceiving"),
                   stop: t("company.ctaStop"),
                   loginFirst: t("account.requireLogin"),
+                  errorGeneric: t("auth.errGeneric"),
                 }}
               />
             )}

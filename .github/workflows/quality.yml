@@ -93,6 +93,61 @@ jobs:
               "http://127.0.0.1:3000$path" >/dev/null
           done
 
+      - name: Exercise signup, newsletter selection and structured review
+        run: |
+          curl --fail --silent --show-error \
+            -c /tmp/fresh-consumer.cookies \
+            -X POST \
+            -H 'Origin: http://127.0.0.1:3000' \
+            -H 'Content-Type: application/json' \
+            --data '{"email":"ci-consumer@example.test","name":"CI Consumer","password":"ci-password-123"}' \
+            http://127.0.0.1:3000/api/auth/signup \
+            | grep -q '"ok":true'
+
+          curl --fail --silent --show-error \
+            -b /tmp/fresh-consumer.cookies \
+            -X POST \
+            -H 'Origin: http://127.0.0.1:3000' \
+            http://127.0.0.1:3000/api/users/me/newsletters/source_0001 \
+            | grep -q '"ok":true'
+
+          curl --fail --silent --show-error \
+            -b /tmp/fresh-consumer.cookies \
+            http://127.0.0.1:3000/api/users/me/review-queue \
+            > /tmp/review-queue.json
+
+          task_id=$(node -e '
+            const fs = require("fs");
+            const payload = JSON.parse(fs.readFileSync("/tmp/review-queue.json", "utf8"));
+            if (!Array.isArray(payload.queue) || payload.queue.length === 0) process.exit(2);
+            process.stdout.write(payload.queue[0].task_id);
+          ')
+          test -n "$task_id"
+
+          curl --fail --silent --show-error \
+            -b /tmp/fresh-consumer.cookies \
+            -X POST \
+            -H 'Origin: http://127.0.0.1:3000' \
+            -H 'Content-Type: application/json' \
+            --data '{"answers":{"price_clarity":"clear","period_clarity":"partial","conditions_visibility":"clear","worked_as_described":"confirmed"}}' \
+            "http://127.0.0.1:3000/api/users/me/reviews/$task_id" \
+            | tee /tmp/review-result.json
+          grep -q '"ok":true' /tmp/review-result.json
+          grep -q '"points_awarded":10' /tmp/review-result.json
+
+          curl --fail --silent --show-error \
+            -b /tmp/fresh-consumer.cookies \
+            http://127.0.0.1:3000/api/users/me/contribution-profile \
+            | tee /tmp/contribution-profile.json
+          grep -q '"contribution_points":10' /tmp/contribution-profile.json
+
+          curl --fail --silent --show-error \
+            -b /tmp/fresh-consumer.cookies \
+            -X DELETE \
+            -H 'Origin: http://127.0.0.1:3000' \
+            http://127.0.0.1:3000/api/users/me/newsletters/source_0001 \
+            | grep -q '"ok":true'
+
       - name: Smoke editorial and admin role access
         run: |
           curl --fail --silent --show-error \

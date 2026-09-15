@@ -20,7 +20,7 @@
 .evidence-sheet {
   background: var(--paper);
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   box-shadow: 7px 9px 0 rgba(18, 32, 27, 0.08);
   overflow: hidden;
 }
@@ -53,7 +53,7 @@
   background: var(--primary);
   color: var(--paper);
   border: 1px solid var(--primary-strong);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   padding: 0.9rem 1rem 1rem;
   box-shadow: 5px 7px 0 rgba(18, 32, 27, 0.12);
 }
@@ -214,12 +214,12 @@
   color: var(--signal-lime);
 }
 
-/* Preserve the strong consumer readability introduced in the current branch,
-   but pull generic rounded-card styling back toward the editorial system. */
+/* Preserve strong consumer readability while keeping the public experience
+   inside the editorial geometry from DESIGN_BRAND (4/10/16, with 16 rare). */
 .offer-card,
 .pulse-panel,
 .community-panel {
-  border-radius: var(--radius-md);
+  border-radius: 10px;
 }
 
 .offer-card {
@@ -231,7 +231,8 @@
   box-shadow: 4px 5px 0 rgba(18, 32, 27, 0.08);
 }
 
-/* Keep the category identity in the information itself, not background decoration. */
+/* Legacy visual classes remain hidden until the old CSS is removed from globals.css.
+   This prevents browser-chrome/glass styling from leaking back into the homepage. */
 .hero-blobs,
 .pw-chrome,
 .product-window,

@@ -4,7 +4,7 @@ import { makeT } from "@/lib/i18n";
 import { fmtFieldValue } from "@/lib/format";
 import type { PublicOfferRow } from "@/lib/queries";
 import CompanyMark from "@/components/CompanyMark";
-import { ArrowRight, CheckCircle, WarningCircle, MinusCircle } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, CheckCircle, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 
 function seenLabel(iso: string, t: (k: string, v?: Record<string, string | number>) => string): string {
   const d = new Date(iso);
@@ -19,10 +19,11 @@ function seenLabel(iso: string, t: (k: string, v?: Record<string, string | numbe
   return t("common.seenDays", { n: diff });
 }
 
-function clarityOf(row: PublicOfferRow): "clear" | "partial" | "caution" {
-  if (row.recognition_status === "clearly_documented" && row.recognition_verified) return "clear";
-  if (row.recognition_status === "insufficient_documentation" && row.recognition_verified) return "caution";
-  return "partial";
+function verifiedClarity(row: PublicOfferRow): "clear" | "caution" | null {
+  if (!row.recognition_verified) return null;
+  if (row.recognition_status === "clearly_documented") return "clear";
+  if (row.recognition_status === "insufficient_documentation") return "caution";
+  return null;
 }
 
 export default function OfferCard(props: { row: PublicOfferRow; locale: Locale }) {
@@ -30,8 +31,8 @@ export default function OfferCard(props: { row: PublicOfferRow; locale: Locale }
   const o = props.row;
   const price = o.fields["advertised_price"];
   const intro = o.fields["intro_period"];
-  const clarity = clarityOf(o);
-  const ClarityIcon = clarity === "clear" ? CheckCircle : clarity === "caution" ? WarningCircle : MinusCircle;
+  const clarity = verifiedClarity(o);
+  const ClarityIcon = clarity === "clear" ? CheckCircle : WarningCircle;
 
   return (
     <Link href={`/tilbud/${o.offer_id}`} className="offer-card">
@@ -48,17 +49,21 @@ export default function OfferCard(props: { row: PublicOfferRow; locale: Locale }
       <p className="offer-card-support">
         {price ? fmtFieldValue(price, props.locale) : intro ? fmtFieldValue(intro, props.locale) : t(`enum.offerType.${o.offer_type}`)}
       </p>
-      <div className="offer-card-pills">
-        <span className="clarity-pill" data-tone={clarity}>
-          <ClarityIcon size={14} weight="fill" />
-          {t(`offer.clarity.${clarity}`)}
-        </span>
-        {o.observation_users > 0 && (
-          <span className="clarity-pill" data-tone="neutral">
-            {t("offer.confirmations", { count: o.observation_users })}
-          </span>
-        )}
-      </div>
+      {(clarity || o.observation_users > 0) && (
+        <div className="offer-card-pills">
+          {clarity && (
+            <span className="clarity-pill" data-tone={clarity}>
+              <ClarityIcon size={14} weight="fill" />
+              {t(`offer.clarity.${clarity}`)}
+            </span>
+          )}
+          {o.observation_users > 0 && (
+            <span className="clarity-pill" data-tone="neutral">
+              {t("offer.confirmations", { count: o.observation_users })}
+            </span>
+          )}
+        </div>
+      )}
       <div className="offer-card-foot">
         <span>{seenLabel(o.observed_at, t)}</span>
         <span className="offer-card-go" aria-hidden="true">
