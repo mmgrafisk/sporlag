@@ -30,7 +30,7 @@ export type BrandConfig = {
 export const DEFAULT_BRAND: BrandConfig = {
   name: process.env.BRAND_NAME || "SPORLAG",
   logo: "layers",
-  tagline: "Markedet i kontekst",
+  tagline: "Markedet, lag for lag.",
   recognitionName: "Tydeligt dokumenteret",
   publicUrl: process.env.BRAND_PUBLIC_URL || "http://localhost:3000",
   emailSender: process.env.BRAND_EMAIL_SENDER || "inbox@platform.local",
@@ -40,7 +40,8 @@ export const DEFAULT_BRAND: BrandConfig = {
     ink: "#151515",
     primary: "#174C43",
     signalLime: "#DDF45B",
-    oxide: "#B64C36",
+    // Validation darkened oxide from #B64C36 to restore AA contrast on canvas.
+    oxide: "#A94430",
     recognition: "#2F7A5C",
   },
 };
