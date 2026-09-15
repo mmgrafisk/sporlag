@@ -47,6 +47,20 @@ jobs:
           cat /tmp/sporlag-server.log
           exit 1
 
+      - name: Reject unrelated cross-site preview origins
+        run: |
+          status=$(curl --silent --show-error \
+            -o /tmp/csrf-response.json \
+            -w '%{http_code}' \
+            -X POST \
+            -H 'Host: offergraph.example' \
+            -H 'Origin: https://attacker.appdeploy.ai' \
+            -H 'Content-Type: application/json' \
+            --data '{"email":"csrf@example.test","name":"CSRF Probe","password":"csrf-password-123"}' \
+            http://127.0.0.1:3000/api/auth/signup)
+          test "$status" = "403"
+          grep -q 'auth.errCsrf' /tmp/csrf-response.json
+
       - name: Seed full Offer Graph validation flow
         run: |
           curl --fail --silent --show-error \
