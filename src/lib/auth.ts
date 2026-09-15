@@ -163,18 +163,23 @@ export function originAllowed(request: Request): boolean {
   if (!origin) return true;
   try {
     const originHost = hostName(new URL(origin).host);
-    const candidates = [
-      hostName(request.headers.get("x-forwarded-host")),
-      hostName(request.headers.get("host")),
-      hostName(new URL(request.url).host),
-    ].filter(Boolean);
+    const forwardedHost = hostName(request.headers.get("x-forwarded-host"));
+    const requestHost = hostName(request.headers.get("host"));
+    const urlHost = hostName(new URL(request.url).host);
+    const candidates = [forwardedHost, requestHost, urlHost].filter(Boolean);
 
     if (candidates.includes(originHost)) return true;
 
+    // Prefer the externally supplied target host(s). Only fall back to request.url
+    // when the proxy supplied neither x-forwarded-host nor Host. This prevents an
+    // internal 127.0.0.1 request URL from making every preview-provider origin trusted.
+    const externalTargets = [forwardedHost, requestHost].filter(Boolean);
+    const targetHosts = externalTargets.length ? externalTargets : [urlHost].filter(Boolean);
+
     // Preview proxies may expose an appdeploy/e2b browser origin while the
-    // Next server itself only sees a local bind address. Keep that case working,
-    // but never trust a preview-provider origin against an unrelated production host.
-    const targetIsPreviewOrLocal = candidates.some((host) => isPreviewHost(host) || isLocalBindHost(host));
+    // Next server itself sees only a local bind address. Keep that case working,
+    // but never trust a preview-provider origin against an unrelated public host.
+    const targetIsPreviewOrLocal = targetHosts.some((host) => isPreviewHost(host) || isLocalBindHost(host));
     if (targetIsPreviewOrLocal && isPreviewHost(originHost)) return true;
 
     return false;
