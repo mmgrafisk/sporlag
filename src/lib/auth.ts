@@ -153,22 +153,35 @@ function isPreviewHost(host: string): boolean {
   );
 }
 
+function isLocalBindHost(host: string): boolean {
+  return host === "0.0.0.0" || host === "127.0.0.1" || host === "localhost";
+}
+
 /** CSRF-ish origin check for mutating requests (§27). */
 export function originAllowed(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return true;
   try {
     const originHost = hostName(new URL(origin).host);
-    const candidates = [
-      hostName(request.headers.get("x-forwarded-host")),
-      hostName(request.headers.get("host")),
-      hostName(new URL(request.url).host),
-    ].filter(Boolean);
+    const forwardedHost = hostName(request.headers.get("x-forwarded-host"));
+    const requestHost = hostName(request.headers.get("host"));
+    const urlHost = hostName(new URL(request.url).host);
+    const candidates = [forwardedHost, requestHost, urlHost].filter(Boolean);
+
     if (candidates.includes(originHost)) return true;
-    // Preview proxies bind to 0.0.0.0 and may omit x-forwarded-host.
-    const bind = candidates.some((h) => h === "0.0.0.0" || h === "127.0.0.1" || h === "localhost");
-    if (bind && isPreviewHost(originHost)) return true;
-    if (isPreviewHost(originHost)) return true;
+
+    // Prefer the externally supplied target host(s). Only fall back to request.url
+    // when the proxy supplied neither x-forwarded-host nor Host. This prevents an
+    // internal 127.0.0.1 request URL from making every preview-provider origin trusted.
+    const externalTargets = [forwardedHost, requestHost].filter(Boolean);
+    const targetHosts = externalTargets.length ? externalTargets : [urlHost].filter(Boolean);
+
+    // Preview proxies may expose an appdeploy/e2b browser origin while the
+    // Next server itself sees only a local bind address. Keep that case working,
+    // but never trust a preview-provider origin against an unrelated public host.
+    const targetIsPreviewOrLocal = targetHosts.some((host) => isPreviewHost(host) || isLocalBindHost(host));
+    if (targetIsPreviewOrLocal && isPreviewHost(originHost)) return true;
+
     return false;
   } catch {
     return false;
