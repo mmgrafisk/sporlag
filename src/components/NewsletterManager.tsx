@@ -8,6 +8,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { MagnifyingGlass, EnvelopeSimple, Check, PaperPlaneTilt } from "@phosphor-icons/react";
+import CompanyMark from "@/components/CompanyMark";
 
 export type SelectionRow = {
   source_id: string; source_name: string; company_name: string; company_slug: string;
@@ -87,8 +88,9 @@ export default function NewsletterManager(props: {
                 {props.selections.map((s) => (
                   <tr key={s.source_id}>
                     <td>
-                      <a href={`/virksomheder/${s.company_slug}`} style={{ fontWeight: 650, color: "var(--ink)" }}>
-                        {s.company_name}
+                      <a href={`/virksomheder/${s.company_slug}`} className="company-entry-link" style={{ fontWeight: 650, color: "var(--ink)" }}>
+                        <CompanyMark name={s.company_name} slug={s.company_slug} size={36} />
+                        <span>{s.company_name}</span>
                       </a>
                       <div className="small muted">{s.source_name}</div>
                     </td>
@@ -145,9 +147,12 @@ export default function NewsletterManager(props: {
                 display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem",
                 padding: "0.85rem 0", borderBottom: "1px solid var(--line)", flexWrap: "wrap",
               }}>
-                <span>
-                  <strong>{a.company_name}</strong>
-                  <span className="small muted"> · {a.source_name}</span>
+                <span className="company-entry-link">
+                  <CompanyMark name={a.company_name} slug={a.company_slug} size={36} />
+                  <span>
+                    <strong>{a.company_name}</strong>
+                    <span className="small muted"> · {a.source_name}</span>
+                  </span>
                 </span>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => toggle(a.source_id, true)}>
                   {selectedIds.has(a.source_id) ? <Check size={15} weight="bold" /> : <EnvelopeSimple size={15} />}

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getLocale, makeT } from "@/lib/i18n";
 import { listCompanies } from "@/lib/queries";
 import { fmtDateShort, fmtNumber } from "@/lib/format";
+import CompanyMark from "@/components/CompanyMark";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,10 @@ export default async function CompaniesPage() {
   const rest = companies.filter((c) => c.published_offers === 0);
 
   const row = (c: (typeof companies)[number]) => (
-    <li key={c.id} style={{
-      display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "1rem",
-      padding: "0.9rem 0", borderBottom: "1px solid var(--line)", flexWrap: "wrap",
-    }}>
-      <span>
-        <Link href={`/virksomheder/${c.slug}`} style={{ fontWeight: 650, color: "var(--ink)", textDecoration: "none", fontSize: "1.05rem" }}>
+    <li key={c.id} className="company-row">
+      <span className="flex items-center gap-1">
+        <CompanyMark name={c.name} slug={c.slug} size={44} src={c.logo_path} />
+        <Link href={`/virksomheder/${c.slug}`}>
           {c.name}
         </Link>
         {c.category && <span className="mono muted"> · {c.category.toUpperCase()}</span>}
@@ -39,7 +38,7 @@ export default async function CompaniesPage() {
   );
 
   return (
-    <div className="wrap section" style={{ paddingTop: "clamp(2rem,5vw,3.5rem)" }}>
+    <div className="wrap section page-intro">
       <span className="chapter-no">01</span>
       <h1>{t("company.title")}</h1>
       <p className="deck mt-1 mb-3">{t("company.intro")}</p>

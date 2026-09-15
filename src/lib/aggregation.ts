@@ -5,7 +5,7 @@
  * - Small samples: show counts, not misleading precision.
  * - Contributor profile keeps points / reputation / impact SEPARATE.
  */
-import { q, q1, run, nextId, nowIso } from "./db";
+import { q, q1, run, nextId, nowIso, tx } from "./db";
 import { logAudit } from "./audit";
 
 export const REVIEW_QUESTIONS = [
@@ -33,14 +33,17 @@ export type CommunitySummary = {
 };
 
 export function communitySummary(offerVersionId: string): CommunitySummary {
-  const rows = q<{ question_key: string; response: string }>(
-    `SELECT question_key, response FROM community_observations WHERE offer_version_id = ?`,
+  const rows = q<{ question_key: string; response: string; n: number }>(
+    `SELECT question_key, response, COUNT(*) AS n
+       FROM community_observations
+      WHERE offer_version_id = ?
+      GROUP BY question_key, response`,
     offerVersionId
   );
   const byQ = new Map<string, Record<string, number>>();
   for (const r of rows) {
     const c = byQ.get(r.question_key) ?? {};
-    c[r.response] = (c[r.response] ?? 0) + 1;
+    c[r.response] = r.n;
     byQ.set(r.question_key, c);
   }
   const order = [...REVIEW_QUESTIONS, OUTCOME_QUESTION];
@@ -51,7 +54,7 @@ export function communitySummary(offerVersionId: string): CommunitySummary {
       const total = Object.values(counts).reduce((a, b) => a + b, 0);
       return { question: k, counts, total };
     });
-  const sample_size = rows.length
+  const sample_size = questions.length
     ? Math.max(...questions.map((qq) => qq.total), 0)
     : 0;
   return { sample_size, questions, small_sample: sample_size < SMALL_SAMPLE_THRESHOLD };
@@ -112,23 +115,28 @@ export function recordObservations(
 export type CompanyClarity = { key: string; percent: number | null; count: number };
 
 export function companyClarity(companyId: string): CompanyClarity[] {
-  const rows = q<{ question_key: string; response: string }>(
-    `SELECT co.question_key, co.response
+  const rows = q<{ question_key: string; response: string; n: number }>(
+    `SELECT co.question_key, co.response, COUNT(*) AS n
        FROM community_observations co
        JOIN offer_versions ov ON ov.id = co.offer_version_id
        JOIN offers o ON o.id = ov.offer_id
-      WHERE o.company_id = ? AND ov.publication_status = 'published'`,
+      WHERE o.company_id = ? AND ov.publication_status = 'published'
+      GROUP BY co.question_key, co.response`,
     companyId
   );
   const keys = [...REVIEW_QUESTIONS, OUTCOME_QUESTION];
   return keys.map((key) => {
     const subset = rows.filter((r) => r.question_key === key);
+    const count = subset.reduce((a, r) => a + r.n, 0);
     const informative = subset.filter((r) => r.response !== "unknown");
-    const clear = informative.filter((r) => r.response === "clear" || r.response === "confirmed");
+    const informativeN = informative.reduce((a, r) => a + r.n, 0);
+    const clearN = informative
+      .filter((r) => r.response === "clear" || r.response === "confirmed")
+      .reduce((a, r) => a + r.n, 0);
     return {
       key,
-      percent: informative.length >= 5 ? Math.round((clear.length / informative.length) * 100) : null,
-      count: subset.length,
+      percent: informativeN >= 5 ? Math.round((clearN / informativeN) * 100) : null,
+      count,
     };
   });
 }

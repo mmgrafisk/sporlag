@@ -9,7 +9,7 @@
  *  - Unverified extractions cannot create publishable versions
  *  - Changed fields become first-class VersionChange objects (§12)
  */
-import { q, q1, run, nextId, nowIso } from "./db";
+import { q, q1, run, nextId, nowIso, tx } from "./db";
 import type { CandidateOffer, ExtractedField } from "./extractor";
 import { EXTRACTOR_VERSION } from "./extractor";
 import { diffMaterialFields, extractFieldsToRecord } from "./matching";
@@ -33,11 +33,12 @@ export function setMessageState(messageId: string, state: MessageState, actorId:
 // Extraction persistence (§6 provenance envelope)
 // ---------------------------------------------------------------------------
 export function persistExtraction(messageId: string, candidates: CandidateOffer[]): string[] {
-  const extractionIds: string[] = [];
   if (!candidates.length) {
     setMessageState(messageId, "NO_OFFER");
-    return extractionIds;
+    return [];
   }
+  return tx(() => {
+  const extractionIds: string[] = [];
   let index = 0;
   for (const c of candidates) {
     const exId = nextId("extraction", "extractions");
@@ -68,6 +69,7 @@ export function persistExtraction(messageId: string, candidates: CandidateOffer[
     count: extractionIds.length, extractor: EXTRACTOR_VERSION,
   });
   return extractionIds;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -91,31 +93,33 @@ export function applyFieldAction(
   }
 
   const status = action === "confirm" ? "confirmed" : action === "edit" ? "edited" : "unknown";
-  run(
-    `UPDATE extraction_fields
-        SET verification_status = ?, verified_by = ?, verified_at = ?
-      WHERE id = ?`,
-    status, reviewerId, nowIso(), fieldId
-  );
-  if (action === "edit") {
-    run(`UPDATE extraction_fields SET value_json = ? WHERE id = ?`, JSON.stringify(humanValue), fieldId);
-  }
-  // Human correction retained as evaluation data (§10): AI prediction frozen
-  run(
-    `INSERT INTO human_corrections
-      (id, extraction_field_id, ai_prediction_json, human_action, human_value_json, evidence_span, extractor_version, reviewer_id, corrected_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    nextId("hcorr", "human_corrections"), fieldId,
-    JSON.stringify({ value: JSON.parse(f.value_json), confidence: f.confidence }),
-    action, action === "edit" ? JSON.stringify(humanValue) : null,
-    f.evidence_span, f.extractor_version, reviewerId, nowIso()
-  );
-  const auditAction =
-    action === "confirm" ? "extraction.field_confirmed"
-    : action === "edit" ? "extraction.field_edited"
-    : "extraction.field_unknown";
-  logAudit(reviewerId, auditAction, "extraction_field", fieldId, { field: f.field });
-  return { ok: true };
+  return tx(() => {
+    run(
+      `UPDATE extraction_fields
+          SET verification_status = ?, verified_by = ?, verified_at = ?
+        WHERE id = ?`,
+      status, reviewerId, nowIso(), fieldId
+    );
+    if (action === "edit") {
+      run(`UPDATE extraction_fields SET value_json = ? WHERE id = ?`, JSON.stringify(humanValue), fieldId);
+    }
+    // Human correction retained as evaluation data (§10): AI prediction frozen
+    run(
+      `INSERT INTO human_corrections
+        (id, extraction_field_id, ai_prediction_json, human_action, human_value_json, evidence_span, extractor_version, reviewer_id, corrected_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      nextId("hcorr", "human_corrections"), fieldId,
+      JSON.stringify({ value: JSON.parse(f.value_json), confidence: f.confidence }),
+      action, action === "edit" ? JSON.stringify(humanValue) : null,
+      f.evidence_span, f.extractor_version, reviewerId, nowIso()
+    );
+    const auditAction =
+      action === "confirm" ? "extraction.field_confirmed"
+      : action === "edit" ? "extraction.field_edited"
+      : "extraction.field_unknown";
+    logAudit(reviewerId, auditAction, "extraction_field", fieldId, { field: f.field });
+    return { ok: true };
+  });
 }
 
 export function extractionFullyReviewed(extractionId: string): boolean {
@@ -174,6 +178,7 @@ export function commitVersion(opts: {
   observedAt: string;
   workingName: string;
 }): { ok: boolean; offerId?: string; versionId?: string; changedFields?: string[]; error?: string } {
+  return tx(() => {
   const ex = q1<{
     id: string; message_id: string; offer_type: string; headline: string | null;
     claim_original: string; source_language: string; status: string;
@@ -296,6 +301,7 @@ export function commitVersion(opts: {
     offer_id: offerId, version: versionNo, changed_fields: changedFields,
   });
   return { ok: true, offerId, versionId, changedFields };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -322,18 +328,20 @@ export function publishVersion(versionId: string, actorId: string): { ok: boolea
 
 /** After publication: every user who selected this newsletter gets a task (§9/§20 chain step 12). */
 export function fanOutReviewTasks(versionId: string) {
-  const v = q1<{ message_id: string }>(`SELECT message_id FROM offer_versions WHERE id = ?`, versionId);
-  if (!v) return;
-  const msg = q1<{ source_id: string }>(`SELECT source_id FROM messages WHERE id = ?`, v.message_id);
-  if (!msg) return;
-  const users = q<{ user_id: string }>(
-    `SELECT user_id FROM user_newsletter_selections WHERE source_id = ?`, msg.source_id
-  );
-  for (const u of users) {
-    run(
-      `INSERT OR IGNORE INTO review_tasks (id, user_id, offer_version_id, status, created_at)
-       VALUES (?, ?, ?, 'open', ?)`,
-      nextId("task", "review_tasks"), u.user_id, versionId, nowIso()
+  tx(() => {
+    const v = q1<{ message_id: string }>(`SELECT message_id FROM offer_versions WHERE id = ?`, versionId);
+    if (!v) return;
+    const msg = q1<{ source_id: string }>(`SELECT source_id FROM messages WHERE id = ?`, v.message_id);
+    if (!msg) return;
+    const users = q<{ user_id: string }>(
+      `SELECT user_id FROM user_newsletter_selections WHERE source_id = ?`, msg.source_id
     );
-  }
+    for (const u of users) {
+      run(
+        `INSERT OR IGNORE INTO review_tasks (id, user_id, offer_version_id, status, created_at)
+         VALUES (?, ?, ?, 'open', ?)`,
+        nextId("task", "review_tasks"), u.user_id, versionId, nowIso()
+      );
+    }
+  });
 }

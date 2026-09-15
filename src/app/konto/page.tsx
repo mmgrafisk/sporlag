@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; msg?: string }>;
+  searchParams: Promise<{ next?: string; msg?: string; tab?: string }>;
 }) {
   const sp = await searchParams;
   const locale = await getLocale();
@@ -30,6 +30,7 @@ export default async function AccountPage({
       {sp.msg === "loggedout" && <div className="alert-ok" style={{ maxWidth: "28rem" }} role="status">{t("account.loggedOut")}</div>}
       <AuthForms
         next={sp.next}
+        initialMode={sp.tab === "signup" ? "signup" : "login"}
         labels={{
           loginTitle: t("account.loginTitle"),
           signupTitle: t("account.signupTitle"),
@@ -41,6 +42,8 @@ export default async function AccountPage({
           signupBtn: t("account.signupBtn"),
           error: t("account.error"),
           signupError: t("account.signupError"),
+          errorCsrf: t("auth.errCsrf"),
+          demoPick: t("account.demoPick"),
           demoNote: t("account.demoNote"),
         }}
       />

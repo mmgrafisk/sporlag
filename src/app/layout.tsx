@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import "@fontsource-variable/source-serif-4";
-import "@fontsource-variable/instrument-sans";
-import "@fontsource/ibm-plex-mono/400.css";
-import "@fontsource/ibm-plex-mono/500.css";
+import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 import { getLocale, makeT, type Locale } from "@/lib/i18n";
 import { getBrand } from "@/lib/brand";
@@ -10,14 +7,53 @@ import { currentUser } from "@/lib/auth";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 
+const display = localFont({
+  src: "../fonts/source-serif-4-latin-wght-normal.woff2",
+  weight: "200 900",
+  display: "swap",
+  variable: "--font-source-serif",
+  adjustFontFallback: "Times New Roman",
+});
+
+const ui = localFont({
+  src: "../fonts/instrument-sans-latin-wght-normal.woff2",
+  weight: "400 700",
+  display: "swap",
+  variable: "--font-instrument",
+  adjustFontFallback: "Arial",
+});
+
+const mono = localFont({
+  src: "../fonts/ibm-plex-mono-latin-400-normal.woff2",
+  weight: "400",
+  display: "swap",
+  variable: "--font-plex-mono",
+  adjustFontFallback: false,
+});
+
 export const dynamic = "force-dynamic";
+
+export const viewport: Viewport = {
+  themeColor: "#F7F5F0",
+  width: "device-width",
+  initialScale: 1,
+  colorScheme: "light",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = getBrand();
+  const description =
+    "Se hvad virksomheder lovede, hvad der faktisk gjaldt, og hvad der ændrede sig. Levende kommerciel evidens for det danske marked.";
   return {
     title: { default: `${brand.name} — ${brand.tagline}`, template: `%s — ${brand.name}` },
-    description:
-      "Se hvad virksomheder lovede, hvad der faktisk gjaldt, og hvad der ændrede sig. Levende kommerciel evidens for det danske marked.",
+    description,
+    metadataBase: new URL(brand.publicUrl || "http://localhost:3000"),
+    openGraph: {
+      title: `${brand.name} — ${brand.tagline}`,
+      description,
+      locale: "da_DK",
+      type: "website",
+    },
   };
 }
 
@@ -28,16 +64,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const user = await currentUser();
 
   return (
-    <html lang={locale === "da-DK" ? "da" : "en"}>
+    <html
+      lang={locale === "da-DK" ? "da" : "en"}
+      className={`${display.variable} ${ui.variable} ${mono.variable}`}
+    >
       <body>
         <a className="skip-link" href="#main">{t("a11y.skipLink")}</a>
         <SiteHeader
           brandName={brand.name}
+          brandTagline={brand.tagline}
           locale={locale}
           user={user ? { name: user.name, role: user.role } : null}
           labels={{
             nav: {
-              explore: t("nav.explore"),
+              home: t("nav.home"),
+              explore: t("nav.offers"),
               companies: t("nav.companies"),
               pulse: t("nav.pulse"),
               methodology: t("nav.methodology"),
@@ -50,6 +91,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               admin: t("nav.admin"),
               login: t("nav.login"),
               logout: t("nav.logout"),
+              signup: t("nav.signup"),
+              search: t("common.search"),
               menu: t("nav.menu"),
               openMenu: t("a11y.openMenu"),
               closeMenu: t("a11y.closeMenu"),

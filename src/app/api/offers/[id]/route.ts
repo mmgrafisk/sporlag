@@ -28,23 +28,23 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
         claim_original: offer.latest.claim_original,
         source_language: offer.latest.source_language,
         observed_at: offer.latest.observed_at,
-        fields: JSON.parse(offer.latest.fields_json),
+        fields: offer.latest.fields,
         published_at: offer.latest.published_at,
       },
       versions: offer.publishedVersions.map((v) => ({
         id: v.id, version: v.version, observed_at: v.observed_at,
-        claim_original: v.claim_original, changed_fields: JSON.parse(v.changed_fields_json),
+        claim_original: v.claim_original, changed_fields: v.changed_fields,
       })),
       evidence: offer.evidence.map((e) => ({
         ref: e.evidence_ref, field: e.field, excerpt: e.evidence_span,
       })),
       changes: offer.changes.map((c) => ({
         field: c.field,
-        old_value: JSON.parse(c.old_value_json),
-        new_value: JSON.parse(c.new_value_json),
+        old_value: c.old_value,
+        new_value: c.new_value,
         changed_at: c.changed_at,
         evidence_ref: c.evidence_ref,
-        version: offer.versions.find((v) => v.id === c.successor_version_id)?.version ?? null,
+        version: offer.publishedVersions.find((v) => v.id === c.successor_version_id)?.version ?? null,
       })),
       community: offer.summary,
       recognition:
@@ -52,7 +52,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
           ? {
               status: offer.recognition.status,
               method_version: offer.recognition.method_version,
-              dimensions: JSON.parse(offer.recognition.dimensions_json),
+              dimensions: offer.recognition.dimensions,
               sample_size: offer.recognition.sample_size,
               decided_at: offer.recognition.decided_at,
             }

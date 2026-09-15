@@ -4,20 +4,22 @@ import { makeT } from "@/lib/i18n";
 import { fmtDateShort, fmtFieldValue, versionLabel } from "@/lib/format";
 import type { PublicOfferRow } from "@/lib/queries";
 import { ArrowsLeftRight } from "@phosphor-icons/react/dist/ssr";
+import CompanyMark from "@/components/CompanyMark";
 
 /** Editorial offer list row — an entry in the record, not a SaaS card. */
 export default function OfferEntry(props: { row: PublicOfferRow; locale: Locale }) {
   const t = makeT(props.locale);
   const o = props.row;
-  const fields = JSON.parse(o.fields_json) as Record<string, unknown>;
-  const changed = JSON.parse(o.changed_fields_json) as string[];
+  const fields = o.fields;
+  const changed = o.changed_fields;
   const price = fields["advertised_price"];
 
   return (
     <article className="offer-entry">
       <div className="offer-entry-side">
-        <Link href={`/virksomheder/${o.company_slug}`} className="mono" style={{ color: "var(--ink)", fontWeight: 600 }}>
-          {o.company_name}
+        <Link href={`/virksomheder/${o.company_slug}`} className="company-entry-link">
+          <CompanyMark name={o.company_name} slug={o.company_slug} size={36} src={o.company_logo_path} />
+          <span>{o.company_name}</span>
         </Link>
         <span className="doc-id">{versionLabel(o.version)} · {o.offer_id}</span>
         {changed.length > 0 && (

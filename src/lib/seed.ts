@@ -22,6 +22,7 @@
  * Trigger: admin → Valideringsdata, or POST /api/internal/dev-seed (admin only).
  */
 import { getDb, q, q1, run, nextId, nowIso, resetIdCache } from "./db";
+import { KNOWN_DOMAINS, resolveLogoSrc } from "./logos";
 import { createUser, type SessionUser } from "./auth";
 import { ingestMessage, runExtraction } from "./ingest";
 import {
@@ -127,10 +128,12 @@ export function runSeedPipeline(): { ok: boolean; summary: Record<string, number
   const companyIds: Record<string, string> = {};
   for (const [name, slug, category] of companyDefs) {
     const id = nextId("company", "companies");
+    const website = KNOWN_DOMAINS[slug] ? `https://${KNOWN_DOMAINS[slug]}` : null;
+    const logo = resolveLogoSrc(slug);
     run(
-      `INSERT INTO companies (id, name, slug, market, category, status, created_at, updated_at)
-       VALUES (?, ?, ?, 'DK', ?, 'active', ?, ?)`,
-      id, name, slug, category, nowIso(), nowIso()
+      `INSERT INTO companies (id, name, slug, market, category, status, website, logo_path, created_at, updated_at)
+       VALUES (?, ?, ?, 'DK', ?, 'active', ?, ?, ?, ?)`,
+      id, name, slug, category, website, logo, nowIso(), nowIso()
     );
     companyIds[slug] = id;
   }

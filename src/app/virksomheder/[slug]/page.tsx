@@ -2,13 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getLocale, makeT } from "@/lib/i18n";
-import { getCompanyProfile } from "@/lib/queries";
+import { getCompanyProfile, isSourceSelected } from "@/lib/queries";
 import { currentUser } from "@/lib/auth";
 import { fmtDateShort, fmtNumber, fmtPercent } from "@/lib/format";
 import NewsletterSelectButton from "@/components/NewsletterSelectButton";
 import DiffBlock from "@/components/DiffBlock";
 import OfferEntry from "@/components/OfferEntry";
-import { q } from "@/lib/db";
+import CompanyMark from "@/components/CompanyMark";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +18,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const company = getCompanyProfile(slug);
   return { title: company ? company.name : makeT(locale)("company.notFound") };
 }
-
-const DIM_QUESTION_KEYS = [
-  "price_clarity", "period_clarity", "post_intro_clarity", "conditions_visibility", "worked_as_described",
-];
 
 /**
  * COMPANY PROFILE (§16 DESIGN): clarity dimensions with sample sizes —
@@ -36,12 +32,7 @@ export default async function CompanyProfilePage({ params }: { params: Promise<{
   if (!profile) notFound();
 
   const primarySource = profile.sources[0] ?? null;
-  const selected = user && primarySource
-    ? q<{ n: number }>(
-        `SELECT COUNT(*) AS n FROM user_newsletter_selections WHERE user_id = ? AND source_id = ?`,
-        user.id, primarySource.id
-      )[0].n > 0
-    : false;
+  const selected = user && primarySource ? isSourceSelected(user.id, primarySource.id) : false;
 
   const totalDimAnswers = profile.clarity.reduce((acc, d) => acc + d.count, 0);
 
@@ -50,7 +41,10 @@ export default async function CompanyProfilePage({ params }: { params: Promise<{
       <header className="offer-hero">
         <div className="wrap">
           <p className="small muted"><Link href="/virksomheder">{t("company.title")}</Link></p>
-          <h1 className="mt-1">{profile.name}</h1>
+          <div className="company-profile-head">
+            <CompanyMark name={profile.name} slug={profile.slug} size={72} src={profile.logo_path} />
+            <h1>{profile.name}</h1>
+          </div>
           <p className="flex gap-1 flex-wrap items-center mt-2">
             {profile.category && <span className="doc-id">{profile.category.toUpperCase()}</span>}
             <span className="doc-id">{profile.market}</span>
@@ -136,8 +130,8 @@ export default async function CompanyProfilePage({ params }: { params: Promise<{
                   </p>
                   <DiffBlock
                     fieldLabel={t(`field.${c.field}`)}
-                    oldValue={JSON.parse(c.old_value_json)}
-                    newValue={JSON.parse(c.new_value_json)}
+                    oldValue={c.old_value}
+                    newValue={c.new_value}
                     locale={locale}
                     changeLabel={t("offer.changeLabel")}
                     toVersion={c.version}
@@ -162,7 +156,7 @@ export default async function CompanyProfilePage({ params }: { params: Promise<{
                 <span className="obs-text" style={{ flex: 1 }}>
                   {s.name} <span className="mono muted">· {s.language.toUpperCase()}</span>
                 </span>
-                <span className="doc-id">{t("company.aliasNote")}: {s.alias_email}</span>
+                <span className="doc-id">{s.status}</span>
               </li>
             ))}
           </ul>
