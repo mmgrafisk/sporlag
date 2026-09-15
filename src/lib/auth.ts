@@ -153,6 +153,10 @@ function isPreviewHost(host: string): boolean {
   );
 }
 
+function isLocalBindHost(host: string): boolean {
+  return host === "0.0.0.0" || host === "127.0.0.1" || host === "localhost";
+}
+
 /** CSRF-ish origin check for mutating requests (§27). */
 export function originAllowed(request: Request): boolean {
   const origin = request.headers.get("origin");
@@ -164,11 +168,15 @@ export function originAllowed(request: Request): boolean {
       hostName(request.headers.get("host")),
       hostName(new URL(request.url).host),
     ].filter(Boolean);
+
     if (candidates.includes(originHost)) return true;
-    // Preview proxies bind to 0.0.0.0 and may omit x-forwarded-host.
-    const bind = candidates.some((h) => h === "0.0.0.0" || h === "127.0.0.1" || h === "localhost");
-    if (bind && isPreviewHost(originHost)) return true;
-    if (isPreviewHost(originHost)) return true;
+
+    // Preview proxies may expose an appdeploy/e2b browser origin while the
+    // Next server itself only sees a local bind address. Keep that case working,
+    // but never trust a preview-provider origin against an unrelated production host.
+    const targetIsPreviewOrLocal = candidates.some((host) => isPreviewHost(host) || isLocalBindHost(host));
+    if (targetIsPreviewOrLocal && isPreviewHost(originHost)) return true;
+
     return false;
   } catch {
     return false;
