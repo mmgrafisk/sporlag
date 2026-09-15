@@ -1,0 +1,28 @@
+{
+  "name": "sporlag-v1",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Denmark-first validation-ready v1 — living commercial evidence platform. Working brand: SPORLAG (not locked).",
+  "scripts": {
+    "dev": "NODE_OPTIONS=--no-warnings next dev -H 0.0.0.0 -p 3000",
+    "build": "next build",
+    "start": "NODE_OPTIONS=--no-warnings next start -H 0.0.0.0 -p 3000",
+    "db:init": "node scripts/init-db.mjs",
+    "db:seed": "node scripts/seed.mjs",
+    "db:reset": "node scripts/reset-db.mjs"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.6",
+    "@fontsource-variable/instrument-sans": "^5.2.5",
+    "@fontsource-variable/source-serif-4": "^5.2.5",
+    "@phosphor-icons/react": "^2.1.10",
+    "next": "^15.4.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "typescript": "^5.8.3"
+  }
+}
